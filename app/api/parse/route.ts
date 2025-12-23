@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import { extractFormData, extractVariations, extractVerbVariations, applyTransliterationReplacement } from "@/app/lib/parse-html-to-json";
+import { extractFormData, extractVariations, extractVerbVariations, applyTransliterationReplacement, removeExclamationMarks } from "@/app/lib/parse-html-to-json";
 import { generateHTML, saveHTMLFile } from "@/app/lib/parse-json-to-html";
 import { NOUN_REGEX, ADJECTIVE_REGEX, VERB_REGEX, BINYAN_REGEX, ROOT_REGEX, HYPHEN_TO_ENDASH_REGEX } from "@/app/constants/regex";
+import { ParseResult, HebrewFormData } from "@/app/types";
 
 
 export async function POST(request: NextRequest) {
@@ -98,48 +99,13 @@ export async function POST(request: NextRequest) {
     // Find the table with conjugation-table class
     const table = $("table.conjugation-table").first();
     
-    type FormData = { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> };
-    type NounResult = {
-      pos: string;
-      gender: string;
-      pattern: string;
-      meaning: string;
-      url: string;
-      root: string;
-      singular: FormData;
-      plural: FormData;
-    };
-    type AdjectiveResult = {
-      pos: string;
-      pattern: string;
-      meaning: string;
-      url: string;
-      root: string;
-      mSingular: FormData;
-      fSingular: FormData;
-      mPlural: FormData;
-      fPlural: FormData;
-    };
-    type VerbResult = {
-      pos: string;
-      binyan: string;
-      meaning: string;
-      url: string;
-      root: string;
-      infinitive: FormData;
-      mSingular: FormData;
-      fSingular: FormData;
-      mPlural: FormData;
-      fPlural: FormData;
-    };
-    
-    let result: NounResult | AdjectiveResult | VerbResult;
+    let result: ParseResult;
     let htmlContent: string | null = null;
 
     if (partOfSpeechToUse === "noun") {
       // Parse noun data
-      let singular: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> } = { h: "", hn: "", t: "", ti: 0 };
-      let plural: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> } = { h: "", hn: "", t: "", ti: 0 };
+      let singular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let plural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
       
       // Find the row with "Absolute state" in the th
       table.find("tr").each((_, row) => {
@@ -199,10 +165,10 @@ export async function POST(request: NextRequest) {
       }
     } else if (partOfSpeechToUse === "adjective") {
       // Parse adjective data - extract all 4 forms
-      let mSingular: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> } = { h: "", hn: "", t: "", ti: 0 };
-      let fSingular: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> } = { h: "", hn: "", t: "", ti: 0 };
-      let mPlural: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> } = { h: "", hn: "", t: "", ti: 0 };
-      let fPlural: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> } = { h: "", hn: "", t: "", ti: 0 };
+      let mSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let fSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let mPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let fPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
       
       // Find adjective forms - look for td elements with IDs or divs with IDs
       // Adjectives have IDs: ms-a (masculine singular), fs-a (feminine singular), mp-a (masculine plural), fp-a (feminine plural)
@@ -327,11 +293,11 @@ export async function POST(request: NextRequest) {
       }
     } else if (partOfSpeechToUse === "verb") {
       // Parse verb data - extract infinitive and present tense forms
-      let infinitive: FormData = { h: "", hn: "", t: "", ti: 0 };
-      let mSingular: FormData = { h: "", hn: "", t: "", ti: 0 };
-      let fSingular: FormData = { h: "", hn: "", t: "", ti: 0 };
-      let mPlural: FormData = { h: "", hn: "", t: "", ti: 0 };
-      let fPlural: FormData = { h: "", hn: "", t: "", ti: 0 };
+      let infinitive: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let mSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let fSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let mPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let fPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
 
       // Helper function to find form data by ID (similar to adjectives)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -432,12 +398,93 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      // Parse imperative forms - search for row containing "Imperative"
+      let imperativeMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let imperativeFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let imperativeMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      let imperativeFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 };
+      
+      table.find("tr").each((_, row) => {
+        const th = $(row).find("th").first();
+        const thText = th.text().trim();
+        if (thText.includes("Imperative")) {
+          // Find imperative forms: IMP-2ms, IMP-2fs, IMP-2mp, IMP-2fp
+          const impMsForm = findFormDataAndTd("IMP-2ms");
+          if (impMsForm) {
+            const impMsData = extractFormData(impMsForm.div, $);
+            imperativeMSingular = { ...impMsData };
+            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
+            const impMsVariationsDirect = extractVerbVariations(impMsForm.div, $);
+            const impMsVariationsAux = extractVariations(impMsForm.td, $);
+            const allImpMsVariations = [...impMsVariationsDirect, ...impMsVariationsAux];
+            if (allImpMsVariations.length > 0) {
+              imperativeMSingular.variations = allImpMsVariations;
+            }
+          }
+
+          const impFsForm = findFormDataAndTd("IMP-2fs");
+          if (impFsForm) {
+            const impFsData = extractFormData(impFsForm.div, $);
+            imperativeFSingular = { ...impFsData };
+            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
+            const impFsVariationsDirect = extractVerbVariations(impFsForm.div, $);
+            const impFsVariationsAux = extractVariations(impFsForm.td, $);
+            const allImpFsVariations = [...impFsVariationsDirect, ...impFsVariationsAux];
+            if (allImpFsVariations.length > 0) {
+              imperativeFSingular.variations = allImpFsVariations;
+            }
+          }
+
+          const impMpForm = findFormDataAndTd("IMP-2mp");
+          if (impMpForm) {
+            const impMpData = extractFormData(impMpForm.div, $);
+            imperativeMPlural = { ...impMpData };
+            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
+            const impMpVariationsDirect = extractVerbVariations(impMpForm.div, $);
+            const impMpVariationsAux = extractVariations(impMpForm.td, $);
+            const allImpMpVariations = [...impMpVariationsDirect, ...impMpVariationsAux];
+            if (allImpMpVariations.length > 0) {
+              imperativeMPlural.variations = allImpMpVariations;
+            }
+          }
+
+          const impFpForm = findFormDataAndTd("IMP-2fp");
+          if (impFpForm) {
+            const impFpData = extractFormData(impFpForm.div, $);
+            imperativeFPlural = { ...impFpData };
+            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
+            const impFpVariationsDirect = extractVerbVariations(impFpForm.div, $);
+            const impFpVariationsAux = extractVariations(impFpForm.td, $);
+            const allImpFpVariations = [...impFpVariationsDirect, ...impFpVariationsAux];
+            if (allImpFpVariations.length > 0) {
+              imperativeFPlural.variations = allImpFpVariations;
+            }
+          }
+
+          return false; // break
+        }
+      });
+
+      // Remove exclamation marks from imperative forms
+      imperativeMSingular = removeExclamationMarks(imperativeMSingular);
+      imperativeFSingular = removeExclamationMarks(imperativeFSingular);
+      imperativeMPlural = removeExclamationMarks(imperativeMPlural);
+      imperativeFPlural = removeExclamationMarks(imperativeFPlural);
+
       // Apply transliteration replacement if enabled
       const processedInfinitive = applyTransliterationReplacement(infinitive, useChToKh, useTzToC);
       const processedMSingular = applyTransliterationReplacement(mSingular, useChToKh, useTzToC);
       const processedFSingular = applyTransliterationReplacement(fSingular, useChToKh, useTzToC);
       const processedMPlural = applyTransliterationReplacement(mPlural, useChToKh, useTzToC);
       const processedFPlural = applyTransliterationReplacement(fPlural, useChToKh, useTzToC);
+      
+      const processedImperativeMSingular = applyTransliterationReplacement(imperativeMSingular, useChToKh, useTzToC);
+      const processedImperativeFSingular = applyTransliterationReplacement(imperativeFSingular, useChToKh, useTzToC);
+      const processedImperativeMPlural = applyTransliterationReplacement(imperativeMPlural, useChToKh, useTzToC);
+      const processedImperativeFPlural = applyTransliterationReplacement(imperativeFPlural, useChToKh, useTzToC);
+
+      // Remove "to " from meaning for imperative
+      const imperativeMeaning = (meaning || "").replace(/^to\s+/i, "");
 
       result = {
         pos: "verb",
@@ -449,7 +496,12 @@ export async function POST(request: NextRequest) {
         mSingular: processedMSingular,
         fSingular: processedFSingular,
         mPlural: processedMPlural,
-        fPlural: processedFPlural
+        fPlural: processedFPlural,
+        imperativeMSingular: processedImperativeMSingular,
+        imperativeFSingular: processedImperativeFSingular,
+        imperativeMPlural: processedImperativeMPlural,
+        imperativeFPlural: processedImperativeFPlural,
+        imperativeMeaning: imperativeMeaning
       };
 
       // Generate and save HTML file

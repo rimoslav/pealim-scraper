@@ -72,61 +72,72 @@ export function extractVariations(td: cheerio.Cheerio<any>, $: cheerio.CheerioAP
     }
     
     if (variationContainer.length > 0) {
-      // Look for structured form data (div[id="s"] or div[id="p"] or div[id="ms-a"], etc., or verb forms)
-      const varDiv = variationContainer.find('div[id="s"], div[id="p"], div[id="ms-a"], div[id="fs-a"], div[id="mp-a"], div[id="fp-a"], div[id="AP-ms"], div[id="AP-fs"], div[id="AP-mp"], div[id="AP-fp"], div[id="INF"]').first();
-      if (varDiv.length > 0) {
-        const varForm = extractFormData(varDiv, $);
-        variations.push(varForm);
-      } else {
-        // Fallback: try to find span.menukad and div.transcription directly
-        const varMenukad = variationContainer.find("span.menukad").first();
-        const varTranscription = variationContainer.find("span.transcription, div.transcription").first();
-        
-        if (varMenukad.length > 0) {
-          let varHN = varMenukad.text().trim();
-          let varH = "";
-          
-          // Check parent for tilde pattern
-          const menukadParent = varMenukad.parent();
-          const parentText = menukadParent.text().trim();
-          if (parentText.includes(TILDE)) {
-            const parts = parentText.split(TILDE).map((p: string) => p.trim());
-            varHN = parts[0] || varHN;
-            varH = parts[1] || "";
-          } else {
-            varH = varHN.replace(NIQQUD_REGEX, "");
-          }
-          
-          let varT = "";
-          let varTI = 0;
-          
-          if (varTranscription.length > 0) {
-            varT = varTranscription.text().trim();
-            const varBold = varTranscription.find("b").first();
-            if (varBold.length > 0) {
-              let textBeforeBold = "";
-              varTranscription.contents().each((_: number, node) => {
-                if (node === varBold[0]) {
-                  return false;
-                }
-                if (node.type === 'text') {
-                  textBeforeBold += node.data;
-                } else if (node.type === 'tag') {
-                  textBeforeBold += $(node).text();
-                }
-              });
-              varTI = textBeforeBold.length;
-            }
-          }
-          
-          variations.push({
-            h: varH,
-            hn: varHN,
-            t: varT,
-            ti: varTI
-          });
-        }
+      // Check if this variation container starts with "In modern language, the masculine form is generally used"
+      // If so, skip it entirely (this is for imperative feminine plural variations that are not useful)
+      const containerText = variationContainer.text().trim();
+      if (containerText.startsWith("In modern language, the masculine form is generally used")) {
+        return variations; // Skip this variation container
       }
+      
+      // Iterate through all direct child divs within the variationContainer
+      variationContainer.children("div").each((_, childDiv) => {
+        const currentDiv = $(childDiv);
+        // Look for structured form data (div[id="s"] or div[id="p"] or div[id="ms-a"], etc., or verb forms)
+        const varDiv = currentDiv.find('div[id="s"], div[id="p"], div[id="ms-a"], div[id="fs-a"], div[id="mp-a"], div[id="fp-a"], div[id="AP-ms"], div[id="AP-fs"], div[id="AP-mp"], div[id="AP-fp"], div[id="INF-L"], div[id="IMP-2ms"], div[id="IMP-2fs"], div[id="IMP-2mp"], div[id="IMP-2fp"]').first();
+        if (varDiv.length > 0) {
+          const varForm = extractFormData(varDiv, $);
+          variations.push(varForm);
+        } else {
+          // Fallback: try to find span.menukad and div.transcription directly within the current childDiv
+          const varMenukad = currentDiv.find("span.menukad").first();
+          const varTranscription = currentDiv.find("span.transcription, div.transcription").first();
+          
+          if (varMenukad.length > 0) {
+            let varHN = varMenukad.text().trim();
+            let varH = "";
+            
+            // Check parent for tilde pattern
+            const menukadParent = varMenukad.parent();
+            const parentText = menukadParent.text().trim();
+            if (parentText.includes(TILDE)) {
+              const parts = parentText.split(TILDE).map((p: string) => p.trim());
+              varHN = parts[0] || varHN;
+              varH = parts[1] || "";
+            } else {
+              varH = varHN.replace(NIQQUD_REGEX, "");
+            }
+            
+            let varT = "";
+            let varTI = 0;
+            
+            if (varTranscription.length > 0) {
+              varT = varTranscription.text().trim();
+              const varBold = varTranscription.find("b").first();
+              if (varBold.length > 0) {
+                let textBeforeBold = "";
+                varTranscription.contents().each((_: number, node) => {
+                  if (node === varBold[0]) {
+                    return false;
+                  }
+                  if (node.type === 'text') {
+                    textBeforeBold += node.data;
+                  } else if (node.type === 'tag') {
+                    textBeforeBold += $(node).text();
+                  }
+                });
+                varTI = textBeforeBold.length;
+              }
+            }
+            
+            variations.push({
+              h: varH,
+              hn: varHN,
+              t: varT,
+              ti: varTI
+            });
+          }
+        }
+      });
     }
   }
   
@@ -210,6 +221,27 @@ export function replaceChWithKh(text: string): string {
 // Helper function to replace 'tz' with 'c' in transliterations
 export function replaceTzWithC(text: string): string {
   return text.replace(TZ_REGEX, 'c');
+}
+
+// Helper function to remove exclamation marks from imperative forms
+export function removeExclamationMarks(form: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> }) {
+  const processedH = form.h.replace(/!/g, "").trim();
+  const processedHN = form.hn.replace(/!/g, "").trim();
+  const processedT = form.t.replace(/!/g, "").trim();
+  const processedVariations = form.variations?.map(variation => ({
+    ...variation,
+    h: variation.h.replace(/!/g, "").trim(),
+    hn: variation.hn.replace(/!/g, "").trim(),
+    t: variation.t.replace(/!/g, "").trim()
+  }));
+  
+  return {
+    ...form,
+    h: processedH,
+    hn: processedHN,
+    t: processedT,
+    variations: processedVariations
+  };
 }
 
 // Helper function to apply transliteration replacement to a form object
