@@ -1,7 +1,7 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  outputFileTracingRoot: __dirname,
-};
+  outputFileTracingRoot: __dirname
+}
 
-export default nextConfig;
+export default nextConfig

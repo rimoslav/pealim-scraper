@@ -1,1 +1,1 @@
-export const TILDE = "~";
+export const TILDE = "~"

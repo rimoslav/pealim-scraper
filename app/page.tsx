@@ -1,81 +1,81 @@
-"use client";
+"use client"
 
-import { useState, FormEvent } from "react";
-import styles from "./page.module.css";
+import { useState, FormEvent } from "react"
+import styles from "./page.module.css"
 
 
 type PartOfSpeech = "noun" | "adjective" | "verb" | "_NONE_";
 
 export default function Home() {
-  const [url, setUrl] = useState("");
-  const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>("_NONE_");
-  const [useChToKh, setUseChToKh] = useState(true);
-  const [useTzToC, setUseTzToC] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [url, setUrl] = useState("")
+  const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>("_NONE_")
+  const [useChToKh, setUseChToKh] = useState(true)
+  const [useTzToC, setUseTzToC] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    setIsLoading(true);
-    setSuccessMessage("");
-    setErrorMessage("");
+    e.preventDefault()
+
+    setIsLoading(true)
+    setSuccessMessage("")
+    setErrorMessage("")
 
     // Prepare request body - only include partOfSpeech if it's not _NONE_
     const requestBody: { url: string; useChToKh: boolean; useTzToC: boolean; partOfSpeech?: string } = {
       url,
       useChToKh,
       useTzToC
-    };
-    
+    }
+
     if (partOfSpeech !== "_NONE_") {
-      requestBody.partOfSpeech = partOfSpeech;
+      requestBody.partOfSpeech = partOfSpeech
     }
 
     try {
       const response = await fetch("/api/parse", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify(requestBody),
-      });
+        body: JSON.stringify(requestBody)
+      })
 
-      const data = await response.json();
-      
+      const data = await response.json()
+
       // Check if the response contains an error
       if (!response.ok || data.error) {
-        setErrorMessage(data.error || "Failed to parse the page.");
-        setTimeout(() => setErrorMessage(""), 5000);
-        return;
+        setErrorMessage(data.error || "Failed to parse the page.")
+        setTimeout(() => setErrorMessage(""), 5000)
+        return
       }
-      
-      console.log("Parsed data:", data);
-      
+
+      console.log("Parsed data:", data)
+
       // Open HTML file if it was generated
       if (data.htmlContent) {
-        const blob = new Blob([data.htmlContent], { type: 'text/html' });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
+        const blob = new Blob([data.htmlContent], { type: 'text/html' })
+        const blobUrl = URL.createObjectURL(blob)
+        window.open(blobUrl, '_blank')
         // Clean up the URL after a short delay
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
       }
-      
+
       // Show success message and clear input
-      setSuccessMessage("Success! HTML file generated and opened.");
-      setUrl("");
-      
+      setSuccessMessage("Success! HTML file generated and opened.")
+      setUrl("")
+
       // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(""), 3000);
+      setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
-      console.error("Error:", error);
-      setErrorMessage("Error: Failed to parse the page.");
-      setTimeout(() => setErrorMessage(""), 5000);
+      console.error("Error:", error)
+      setErrorMessage("Error: Failed to parse the page.")
+      setTimeout(() => setErrorMessage(""), 5000)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className={styles.container}>
@@ -87,6 +87,7 @@ export default function Home() {
               Pealim URL
             </label>
             <input
+              autoFocus
               id="url"
               type="url"
               value={url}
@@ -96,7 +97,7 @@ export default function Home() {
               required
             />
           </div>
-          
+
           <div className={styles.formGroup}>
             <label htmlFor="partOfSpeech" className={styles.label}>
               Part of speech
@@ -135,20 +136,20 @@ export default function Home() {
             </label>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className={styles.submitButton}
             disabled={!url.trim() || isLoading}
           >
             {isLoading ? "Working..." : "Submit"}
           </button>
-          
+
           {successMessage && (
             <div className={styles.successMessage}>
               {successMessage}
             </div>
           )}
-          
+
           {errorMessage && (
             <div className={styles.errorMessage}>
               {errorMessage}
@@ -157,5 +158,5 @@ export default function Home() {
         </form>
       </main>
     </div>
-  );
+  )
 }
