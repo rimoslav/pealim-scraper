@@ -22,7 +22,7 @@ export const FWB = "font-weight: bold;"
 
 // Combined styles for common cell types
 export const MEANING_CELL = `${FF} ${FS9} ${VA} ${TAL} ${P0_4}`
-export const PERSON_CELL = `${FF} ${FS9} ${VA} ${TAC} ${P0_4}`
+export const PERSON_CELL = `${FF} ${FS9} ${TAC} ${VA}`
 export const HEBREW_FIRST_ROW = `${FF} ${FS975} ${RTL} ${TAC} ${VA} ${P2_0}`
 export const TRANSLITERATION_ROW = `${FF} ${FS825} ${TAC} ${VA}`
 export const ROOT_CELL = `${FF} ${FS9} ${FWB} ${VA} ${TAC} ${P0}`
