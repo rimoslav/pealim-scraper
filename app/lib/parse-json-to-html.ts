@@ -2,7 +2,7 @@ import * as fs from "fs"
 import * as path from "path"
 import { homedir } from "os"
 import { URL_LAST_PATH_SEGMENT_REGEX } from "@/app/constants/regex"
-import { MEANING_CELL, PERSON_CELL, HEBREW_FIRST_ROW, TRANSLITERATION_ROW, ROOT_CELL, BINYAN_CELL, PATTERN_CELL } from "@/app/constants/css"
+import { MEANING_CELL, PERSON_CELL, HEBREW_FIRST_ROW, TRANSLITERATION_ROW, ROOT_CELL, BINYAN_CELL, PATTERN_CELL, PAST_AND_FUTURE_ROW_TOP_BORDER, PAST_AND_FUTURE_ROW_BOTTOM_BORDER } from "@/app/constants/css"
 import { HebrewFormData, NounHTMLRowData, AdjectiveHTMLRowData, VerbHTMLRowData, ImperativeHTMLRowData, FutureTenseHTMLRowData, PastTenseHTMLRowData, GenerateHTMLData } from "@/app/types"
 
 
@@ -119,7 +119,7 @@ export function generateNounHTMLRow(data: NounHTMLRowData): string {
 }
 
 // Generate HTML row for verbs
-export function generateVerbHTMLRow(data: VerbHTMLRowData): string {
+export function generatePresentTenseHTMLRow(data: VerbHTMLRowData): string {
   const { meaning, infinitive, mSingular, fSingular, mPlural, fPlural, root, binyan, url } = data
 
   const infinitiveCell = formatHebrewCell(infinitive)
@@ -197,7 +197,7 @@ export function generateFutureTenseHTMLRow(data: FutureTenseHTMLRowData): string
   const fut3FpCell = formatHebrewCell(future3rdFPlural)
 
   return `
-    <tr>
+    <tr style="${PAST_AND_FUTURE_ROW_TOP_BORDER}">
       <td rowspan="6" style="${MEANING_CELL}">${meaning}</td>
       <td rowspan="2" style="${PERSON_CELL}">1</td>
       <td colspan="2" style="${HEBREW_FIRST_ROW}">${fut1MsCell.firstRow}</td>
@@ -231,7 +231,7 @@ export function generateFutureTenseHTMLRow(data: FutureTenseHTMLRowData): string
       <td style="${HEBREW_FIRST_ROW}">${fut3MpCell.firstRow}</td>
       <td style="${HEBREW_FIRST_ROW}">${fut3FpCell.firstRow}</td>
     </tr>
-    <tr>
+    <tr style="${PAST_AND_FUTURE_ROW_BOTTOM_BORDER}">
       <td style="${TRANSLITERATION_ROW}">${fut3MsCell.secondRow}</td>
       <td style="${TRANSLITERATION_ROW}">${fut3FsCell.secondRow}</td>
       <td style="${TRANSLITERATION_ROW}">${fut3MpCell.secondRow}</td>
@@ -255,7 +255,7 @@ export function generatePastTenseHTMLRow(data: PastTenseHTMLRowData): string {
   const past3pCell = formatHebrewCell(past3rdMPlural)
 
   return `
-    <tr>
+    <tr style="${PAST_AND_FUTURE_ROW_TOP_BORDER}">
       <td rowspan="6" style="${MEANING_CELL}">${meaning}</td>
       <td rowspan="2" style="${PERSON_CELL}">1</td>
       <td colspan="2" style="${HEBREW_FIRST_ROW}">${past1MsCell.firstRow}</td>
@@ -288,7 +288,7 @@ export function generatePastTenseHTMLRow(data: PastTenseHTMLRowData): string {
       <td style="${HEBREW_FIRST_ROW}">${past3FsCell.firstRow}</td>
       <td colspan="2" style="${HEBREW_FIRST_ROW}">${past3pCell.firstRow}</td>
     </tr>
-    <tr>
+    <tr style="${PAST_AND_FUTURE_ROW_BOTTOM_BORDER}">
       <td style="${TRANSLITERATION_ROW}">${past3MsCell.secondRow}</td>
       <td style="${TRANSLITERATION_ROW}">${past3FsCell.secondRow}</td>
       <td colspan="2" style="${TRANSLITERATION_ROW}">${past3pCell.secondRow}</td>
@@ -375,7 +375,7 @@ export function generateHTML(data: GenerateHTMLData): string {
     tables.push(generateTableContainer(tableId, rowHTML))
   } else if (data.pos === "verb" && data.infinitive && data.mSingular && data.fSingular && data.mPlural && data.fPlural) {
     // Present tense table
-    const presentRowHTML = generateVerbHTMLRow({
+    const presentRowHTML = generatePresentTenseHTMLRow({
       meaning: data.meaning,
       infinitive: data.infinitive,
       mSingular: data.mSingular,

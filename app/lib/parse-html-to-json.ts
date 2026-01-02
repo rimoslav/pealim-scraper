@@ -252,6 +252,34 @@ export function replaceTzWithC(text: string): string {
   return text.replace(TZ_REGEX, 'c')
 }
 
+// Helper function to replace 'tz' with 'c' and adjust accent index
+// Returns the replaced text and the adjusted index
+export function replaceTzWithCAndAdjustIndex(text: string, accentIndex: number): { text: string; accentIndex: number } {
+  // Find all positions where 'tz' appears
+  const tzPositions: number[] = []
+  let searchIndex = 0
+  while (true) {
+    const index = text.indexOf('tz', searchIndex)
+    if (index === -1) break
+    tzPositions.push(index)
+    searchIndex = index + 1
+  }
+
+  // Count how many 'tz' occurrences are before the accent index
+  // Each 'tz' becomes 'c' (1 char instead of 2), so we subtract 1 for each 'tz' before the accent
+  let adjustedIndex = accentIndex
+  for (const tzPos of tzPositions) {
+    if (tzPos < accentIndex) {
+      adjustedIndex -= 1
+    }
+  }
+
+  // Replace 'tz' with 'c'
+  const replacedText = text.replace(TZ_REGEX, 'c')
+
+  return { text: replacedText, accentIndex: adjustedIndex }
+}
+
 // Helper function to remove exclamation marks from imperative forms
 export function removeExclamationMarks(form: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> }) {
   const processedH = form.h.replace(/!/g, "").trim()
@@ -276,6 +304,7 @@ export function removeExclamationMarks(form: { h: string; hn: string; t: string;
 // Helper function to apply transliteration replacement to a form object
 export function applyTransliterationReplacement(form: { h: string; hn: string; t: string; ti: number; variations?: Array<{ h: string; hn: string; t: string; ti: number }> }, useChToKh: boolean, useTzToC: boolean) {
   let processedT = form.t
+  let processedTI = form.ti
   let processedVariations = form.variations
 
   if (useChToKh) {
@@ -289,18 +318,25 @@ export function applyTransliterationReplacement(form: { h: string; hn: string; t
   }
 
   if (useTzToC) {
-    processedT = replaceTzWithC(processedT)
+    const result = replaceTzWithCAndAdjustIndex(processedT, processedTI)
+    processedT = result.text
+    processedTI = result.accentIndex
     if (processedVariations) {
-      processedVariations = processedVariations.map(variation => ({
-        ...variation,
-        t: replaceTzWithC(variation.t)
-      }))
+      processedVariations = processedVariations.map(variation => {
+        const varResult = replaceTzWithCAndAdjustIndex(variation.t, variation.ti)
+        return {
+          ...variation,
+          t: varResult.text,
+          ti: varResult.accentIndex
+        }
+      })
     }
   }
 
   return {
     ...form,
     t: processedT,
+    ti: processedTI,
     variations: processedVariations
   }
 }

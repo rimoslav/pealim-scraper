@@ -28,3 +28,5 @@ export const TRANSLITERATION_ROW = `${FF} ${FS825} ${TAC} ${VA}`
 export const ROOT_CELL = `${FF} ${FS9} ${FWB} ${VA} ${TAC} ${P0}`
 export const BINYAN_CELL = `${FF} ${FS9} ${FWB} ${VA} ${TAC} ${P0}`
 export const PATTERN_CELL = `${FF} ${FS825} ${TAC} ${VA}`
+export const PAST_AND_FUTURE_ROW_TOP_BORDER = "border-top: 1.8px solid black;"
+export const PAST_AND_FUTURE_ROW_BOTTOM_BORDER = "border-bottom: 1.8px solid black;"

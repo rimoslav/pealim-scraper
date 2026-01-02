@@ -14,6 +14,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
+  const [shouldShowMore, setShouldShowMore] = useState(false)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -82,58 +83,87 @@ export default function Home() {
       <main className={styles.main}>
         <h1 className={styles.title}>Pealim Scraper</h1>
         <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.formGroup}>
-            <label htmlFor="url" className={styles.label}>
-              Pealim URL
-            </label>
-            <input
-              autoFocus
-              id="url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.pealim.com/..."
-              className={styles.input}
-              required
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="partOfSpeech" className={styles.label}>
-              Part of speech
-            </label>
-            <select
-              id="partOfSpeech"
-              value={partOfSpeech}
-              onChange={(e) => setPartOfSpeech(e.target.value as "noun" | "adjective" | "verb")}
-              className={partOfSpeech === "_NONE_" ? `${styles.select} ${styles.selectDisabled}` : styles.select}
+          <div className={styles.inputRow}>
+            <div className={styles.formGroup}>
+              <label htmlFor="url" className={styles.label}>
+                Pealim URL
+              </label>
+              <input
+                autoFocus
+                id="url"
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.pealim.com/..."
+                className={styles.input}
+                required
+              />
+            </div>
+            <button
+              type="button"
+              className={styles.iconButton}
+              onClick={() => setShouldShowMore(!shouldShowMore)}
+              aria-label={shouldShowMore ? "Hide more options" : "Show more options"}
             >
-              <option value="_NONE_">Select part of speech</option>
-              <option value="noun">Noun</option>
-              <option value="adjective">Adjective</option>
-              <option value="verb">Verb</option>
-            </select>
+              <span>{shouldShowMore ? "Less" : "More"}</span>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className={shouldShowMore ? styles.iconRotated : ""}
+              >
+                <path
+                  d="M5 7.5L10 12.5L15 7.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           </div>
 
-          <div className={styles.checkboxGroup}>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={useChToKh}
-                onChange={(e) => setUseChToKh(e.target.checked)}
-                className={styles.checkbox}
-              />
-              Transliterate ך, כ and ח as kh
-            </label>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={useTzToC}
-                onChange={(e) => setUseTzToC(e.target.checked)}
-                className={styles.checkbox}
-              />
-              Transliterate צ and ץ as c
-            </label>
+          <div className={`${styles.collapsibleContent} ${shouldShowMore ? styles.collapsibleContentExpanded : ""}`}>
+            <div className={styles.collapsibleInner}>
+              <div className={styles.formGroup}>
+                <label htmlFor="partOfSpeech" className={styles.label}>
+                  Part of speech
+                </label>
+                <select
+                  id="partOfSpeech"
+                  value={partOfSpeech}
+                  onChange={(e) => setPartOfSpeech(e.target.value as "noun" | "adjective" | "verb")}
+                  className={partOfSpeech === "_NONE_" ? `${styles.select} ${styles.selectDisabled}` : styles.select}>
+                  <option value="_NONE_">Select part of speech</option>
+                  <option value="noun">Noun</option>
+                  <option value="adjective">Adjective</option>
+                  <option value="verb">Verb</option>
+                </select>
+              </div>
+
+              <div className={styles.checkboxGroup}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={useChToKh}
+                    onChange={(e) => setUseChToKh(e.target.checked)}
+                    className={styles.checkbox}
+                  />
+                  Transliterate ך, כ and ח as kh
+                </label>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={useTzToC}
+                    onChange={(e) => setUseTzToC(e.target.checked)}
+                    className={styles.checkbox}
+                  />
+                  Transliterate צ and ץ as c
+                </label>
+              </div>
+            </div>
           </div>
 
           <button
