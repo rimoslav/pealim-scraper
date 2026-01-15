@@ -96,8 +96,50 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Check for passive forms header and extract passive binyan
+    let passiveBinyan = ""
+    let hasPassiveForms = false
+    $("h3.page-header").each((_, el) => {
+      const headingText = $(el).text().trim()
+      if (headingText.startsWith("Passive forms")) {
+        hasPassiveForms = true
+        const smallSpan = $(el).find("span.small").first()
+        if (smallSpan.length > 0) {
+          const binyanText = smallSpan.text().trim()
+          // Extract binyan name (e.g., "Binyan Pu'al" -> "PU'AL")
+          const binyanMatch = binyanText.match(/Binyan\s+(.+)/i)
+          if (binyanMatch && binyanMatch[1]) {
+            passiveBinyan = binyanMatch[1].trim().toUpperCase()
+          }
+        }
+        return false // break
+      }
+    })
+
     // Find the table with conjugation-table class
     const table = $("table.conjugation-table").first()
+
+    // Find passive forms table if it exists
+
+    let passiveTable: cheerio.Cheerio<any> | undefined = undefined
+    if (hasPassiveForms) {
+      // Find the h3 with "Passive forms" and get the next table
+      $("h3.page-header").each((_, el) => {
+        const headingText = $(el).text().trim()
+        if (headingText.startsWith("Passive forms")) {
+          // Find the next table.conjugation-table after this h3
+          let nextElement = $(el).next()
+          while (nextElement.length > 0) {
+            if (nextElement.is("table.conjugation-table")) {
+              passiveTable = nextElement
+              return false // break outer loop
+            }
+            nextElement = nextElement.next()
+          }
+          return false // break
+        }
+      })
+    }
 
     let result: ParseResult
     let htmlContent: string | null = null
@@ -177,19 +219,19 @@ export async function POST(request: NextRequest) {
       // Find adjective forms - look for td elements with IDs or divs with IDs
       // Adjectives have IDs: ms-a (masculine singular), fs-a (feminine singular), mp-a (masculine plural), fp-a (feminine plural)
       const findFormData = (formId: string): {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         td: cheerio.Cheerio<any>;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         div: cheerio.Cheerio<any>
       } | null => {
         // Try td with id first
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         let td: cheerio.Cheerio<any> = table.find(`td[id="${formId}"]`).first()
         if (td.length === 0) {
           // Try div with id and get its parent td
           const div = table.find(`div[id="${formId}"]`).first()
           if (div.length > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             td = div.closest("td.conj-td") as cheerio.Cheerio<any>
           }
         }
@@ -300,12 +342,9 @@ export async function POST(request: NextRequest) {
       let fPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
 
       // Helper function to find form data by ID (similar to adjectives)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const findFormDataAndTd = (formId: string): { td: cheerio.Cheerio<any>; div: cheerio.Cheerio<any> } | null => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let td: cheerio.Cheerio<any> = table.find(`td[id="${formId}"]`).first()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let div: cheerio.Cheerio<any> = table.find(`div[id="${formId}"]`).first()
+      const findFormDataAndTd = (formId: string, targetTable: cheerio.Cheerio<any> = table): { td: cheerio.Cheerio<any>; div: cheerio.Cheerio<any> } | null => {
+        let td: cheerio.Cheerio<any> = targetTable.find(`td[id="${formId}"]`).first()
+        let div: cheerio.Cheerio<any> = targetTable.find(`div[id="${formId}"]`).first()
 
         if (td.length > 0) {
           if (div.length === 0) {
@@ -321,436 +360,274 @@ export async function POST(request: NextRequest) {
         return null
       }
 
-      // Find infinitive (ID is "INF-L" not "INF")
-      const infForm = findFormDataAndTd("INF-L")
-      if (infForm) {
-        const infData = extractFormData(infForm.div, $)
-        infinitive = { ...infData }
-        // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-        const infVariationsDirect = extractVerbVariations(infForm.div, $)
-        const infVariationsAux = extractVariations(infForm.td, $)
-        // Combine both types of variations
-        const allInfVariations = [...infVariationsDirect, ...infVariationsAux]
-        if (allInfVariations.length > 0) {
-          infinitive.variations = allInfVariations
+      // Helper function to parse all verb forms from a table
+      const parseVerbForms = (
+        targetTable: cheerio.Cheerio<any>,
+        idPrefix: string = "",
+        includeInfinitive: boolean = true,
+        includeImperative: boolean = true
+      ) => {
+        const prefixId = (id: string) => idPrefix ? `${idPrefix}${id}` : id
+
+        const result: {
+          infinitive?: HebrewFormData
+          mSingular?: HebrewFormData
+          fSingular?: HebrewFormData
+          mPlural?: HebrewFormData
+          fPlural?: HebrewFormData
+          imperativeMSingular?: HebrewFormData
+          imperativeFSingular?: HebrewFormData
+          imperativeMPlural?: HebrewFormData
+          imperativeFPlural?: HebrewFormData
+          past1stMSingular?: HebrewFormData
+          past1stMPlural?: HebrewFormData
+          past2ndMSingular?: HebrewFormData
+          past2ndFSingular?: HebrewFormData
+          past2ndMPlural?: HebrewFormData
+          past2ndFPlural?: HebrewFormData
+          past3rdMSingular?: HebrewFormData
+          past3rdFSingular?: HebrewFormData
+          past3rdMPlural?: HebrewFormData
+          future1stMSingular?: HebrewFormData
+          future1stMPlural?: HebrewFormData
+          future2ndMSingular?: HebrewFormData
+          future2ndFSingular?: HebrewFormData
+          future2ndMPlural?: HebrewFormData
+          future2ndFPlural?: HebrewFormData
+          future3rdMSingular?: HebrewFormData
+          future3rdFSingular?: HebrewFormData
+          future3rdMPlural?: HebrewFormData
+          future3rdFPlural?: HebrewFormData
+        } = {}
+
+        // Parse infinitive if needed
+        if (includeInfinitive) {
+          const infForm = findFormDataAndTd(prefixId("INF-L"), targetTable)
+          if (infForm) {
+            const infData = extractFormData(infForm.div, $)
+            const infVariationsDirect = extractVerbVariations(infForm.div, $)
+            const infVariationsAux = extractVariations(infForm.td, $)
+            const allInfVariations = [...infVariationsDirect, ...infVariationsAux]
+            result.infinitive = { ...infData }
+            if (allInfVariations.length > 0) {
+              result.infinitive.variations = allInfVariations
+            }
+          }
         }
+
+        // Parse present tense
+        targetTable.find("tr").each((_, row) => {
+          const th = $(row).find("th").first()
+          const thText = th.text().trim()
+          if (thText.includes("Present tense")) {
+            const parseForm = (formId: string, key: keyof typeof result) => {
+              const form = findFormDataAndTd(prefixId(formId), targetTable)
+              if (form) {
+                const formData = extractFormData(form.div, $)
+                const variationsDirect = extractVerbVariations(form.div, $)
+                const variationsAux = extractVariations(form.td, $)
+                const allVariations = [...variationsDirect, ...variationsAux]
+                result[key] = { ...formData }
+                if (allVariations.length > 0) {
+                  result[key]!.variations = allVariations
+                }
+              }
+            }
+
+            parseForm("AP-ms", "mSingular")
+            parseForm("AP-fs", "fSingular")
+            parseForm("AP-mp", "mPlural")
+            parseForm("AP-fp", "fPlural")
+            return false
+          }
+        })
+
+        // Parse imperative if needed
+        if (includeImperative) {
+          targetTable.find("tr").each((_, row) => {
+            const th = $(row).find("th").first()
+            const thText = th.text().trim()
+            if (thText.includes("Imperative")) {
+              const parseForm = (formId: string, key: keyof typeof result, filterModernLanguage: boolean = false) => {
+                const form = findFormDataAndTd(prefixId(formId), targetTable)
+                if (form) {
+                  const formData = extractFormData(form.div, $)
+                  const variationsDirect = extractVerbVariations(form.div, $)
+                  const variationsAux = extractVariations(form.td, $, false, filterModernLanguage)
+                  const allVariations = [...variationsDirect, ...variationsAux]
+                  let processedData = { ...formData }
+                  processedData = removeExclamationMarks(processedData)
+                  result[key] = processedData
+                  if (allVariations.length > 0) {
+                    result[key]!.variations = allVariations
+                  }
+                }
+              }
+
+              parseForm("IMP-2ms", "imperativeMSingular")
+              parseForm("IMP-2fs", "imperativeFSingular")
+              parseForm("IMP-2mp", "imperativeMPlural")
+              parseForm("IMP-2fp", "imperativeFPlural", true)
+              return false
+            }
+          })
+        }
+
+        // Parse future tense
+        targetTable.find("tr").each((_, row) => {
+          const th = $(row).find("th").first()
+          const thText = th.text().trim()
+          if (thText.includes("Future tense")) {
+            const parseForm = (formId: string, key: keyof typeof result, filterModernLanguage: boolean = false) => {
+              const form = findFormDataAndTd(prefixId(formId), targetTable)
+              if (form) {
+                const formData = extractFormData(form.div, $)
+                const variationsDirect = extractVerbVariations(form.div, $)
+                const variationsAux = extractVariations(form.td, $, false, filterModernLanguage)
+                const allVariations = [...variationsDirect, ...variationsAux]
+                result[key] = { ...formData }
+                if (allVariations.length > 0) {
+                  result[key]!.variations = allVariations
+                }
+              }
+            }
+
+            parseForm("IMPF-1s", "future1stMSingular")
+            parseForm("IMPF-1p", "future1stMPlural")
+            parseForm("IMPF-2ms", "future2ndMSingular")
+            parseForm("IMPF-2fs", "future2ndFSingular")
+            parseForm("IMPF-2mp", "future2ndMPlural")
+            parseForm("IMPF-2fp", "future2ndFPlural", true)
+            parseForm("IMPF-3ms", "future3rdMSingular")
+            parseForm("IMPF-3fs", "future3rdFSingular")
+            parseForm("IMPF-3mp", "future3rdMPlural")
+            parseForm("IMPF-3fp", "future3rdFPlural", true)
+            return false
+          }
+        })
+
+        // Parse past tense
+        targetTable.find("tr").each((_, row) => {
+          const th = $(row).find("th").first()
+          const thText = th.text().trim()
+          if (thText.includes("Past tense")) {
+            const parseForm = (formId: string, key: keyof typeof result, filterUnstressed: boolean = false) => {
+              const form = findFormDataAndTd(prefixId(formId), targetTable)
+              if (form) {
+                const formData = extractFormData(form.div, $)
+                const variationsDirect = extractVerbVariations(form.div, $)
+                const variationsAux = extractVariations(form.td, $, filterUnstressed, false)
+                const allVariations = [...variationsDirect, ...variationsAux]
+                result[key] = { ...formData }
+                if (allVariations.length > 0) {
+                  result[key]!.variations = allVariations
+                }
+              }
+            }
+
+            parseForm("PERF-1s", "past1stMSingular")
+            parseForm("PERF-1p", "past1stMPlural")
+            parseForm("PERF-2ms", "past2ndMSingular")
+            parseForm("PERF-2fs", "past2ndFSingular")
+            parseForm("PERF-2mp", "past2ndMPlural", true)
+            parseForm("PERF-2fp", "past2ndFPlural", true)
+            parseForm("PERF-3ms", "past3rdMSingular")
+            parseForm("PERF-3fs", "past3rdFSingular")
+            parseForm("PERF-3p", "past3rdMPlural")
+            return false
+          }
+        })
+
+        return result
       }
 
-      // Find present tense forms - search for row containing "Present tense"
-      table.find("tr").each((_, row) => {
-        const th = $(row).find("th").first()
-        const thText = th.text().trim()
-        if (thText.includes("Present tense")) {
-          // Find present tense forms: AP-ms, AP-fs, AP-mp, AP-fp
-          const msForm = findFormDataAndTd("AP-ms")
-          if (msForm) {
-            const msData = extractFormData(msForm.div, $)
-            mSingular = { ...msData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const msVariationsDirect = extractVerbVariations(msForm.div, $)
-            const msVariationsAux = extractVariations(msForm.td, $)
-            const allMsVariations = [...msVariationsDirect, ...msVariationsAux]
-            if (allMsVariations.length > 0) {
-              mSingular.variations = allMsVariations
-            }
-          }
+      // Parse active forms using helper function
+      const activeForms = parseVerbForms(table, "", true, true)
+      infinitive = activeForms.infinitive || infinitive
+      mSingular = activeForms.mSingular || mSingular
+      fSingular = activeForms.fSingular || fSingular
+      mPlural = activeForms.mPlural || mPlural
+      fPlural = activeForms.fPlural || fPlural
 
-          const fsForm = findFormDataAndTd("AP-fs")
-          if (fsForm) {
-            const fsData = extractFormData(fsForm.div, $)
-            fSingular = { ...fsData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const fsVariationsDirect = extractVerbVariations(fsForm.div, $)
-            const fsVariationsAux = extractVariations(fsForm.td, $)
-            const allFsVariations = [...fsVariationsDirect, ...fsVariationsAux]
-            if (allFsVariations.length > 0) {
-              fSingular.variations = allFsVariations
-            }
-          }
+      const imperativeMSingular: HebrewFormData = activeForms.imperativeMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const imperativeFSingular: HebrewFormData = activeForms.imperativeFSingular || { h: "", hn: "", t: "", ti: 0 }
+      const imperativeMPlural: HebrewFormData = activeForms.imperativeMPlural || { h: "", hn: "", t: "", ti: 0 }
+      const imperativeFPlural: HebrewFormData = activeForms.imperativeFPlural || { h: "", hn: "", t: "", ti: 0 }
 
-          const mpForm = findFormDataAndTd("AP-mp")
-          if (mpForm) {
-            const mpData = extractFormData(mpForm.div, $)
-            mPlural = { ...mpData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const mpVariationsDirect = extractVerbVariations(mpForm.div, $)
-            const mpVariationsAux = extractVariations(mpForm.td, $)
-            const allMpVariations = [...mpVariationsDirect, ...mpVariationsAux]
-            if (allMpVariations.length > 0) {
-              mPlural.variations = allMpVariations
-            }
-          }
+      const future1stSingular: HebrewFormData = activeForms.future1stMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const future1stPlural: HebrewFormData = activeForms.future1stMPlural || { h: "", hn: "", t: "", ti: 0 }
+      const future2ndMSingular: HebrewFormData = activeForms.future2ndMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const future2ndFSingular: HebrewFormData = activeForms.future2ndFSingular || { h: "", hn: "", t: "", ti: 0 }
+      const future2ndMPlural: HebrewFormData = activeForms.future2ndMPlural || { h: "", hn: "", t: "", ti: 0 }
+      const future2ndFPlural: HebrewFormData = activeForms.future2ndFPlural || { h: "", hn: "", t: "", ti: 0 }
+      const future3rdMSingular: HebrewFormData = activeForms.future3rdMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const future3rdFSingular: HebrewFormData = activeForms.future3rdFSingular || { h: "", hn: "", t: "", ti: 0 }
+      const future3rdMPlural: HebrewFormData = activeForms.future3rdMPlural || { h: "", hn: "", t: "", ti: 0 }
+      const future3rdFPlural: HebrewFormData = activeForms.future3rdFPlural || { h: "", hn: "", t: "", ti: 0 }
 
-          const fpForm = findFormDataAndTd("AP-fp")
-          if (fpForm) {
-            const fpData = extractFormData(fpForm.div, $)
-            fPlural = { ...fpData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const fpVariationsDirect = extractVerbVariations(fpForm.div, $)
-            const fpVariationsAux = extractVariations(fpForm.td, $)
-            const allFpVariations = [...fpVariationsDirect, ...fpVariationsAux]
-            if (allFpVariations.length > 0) {
-              fPlural.variations = allFpVariations
-            }
-          }
+      const past1stSingular: HebrewFormData = activeForms.past1stMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const past1stPlural: HebrewFormData = activeForms.past1stMPlural || { h: "", hn: "", t: "", ti: 0 }
+      const past2ndMSingular: HebrewFormData = activeForms.past2ndMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const past2ndFSingular: HebrewFormData = activeForms.past2ndFSingular || { h: "", hn: "", t: "", ti: 0 }
+      const past2ndMPlural: HebrewFormData = activeForms.past2ndMPlural || { h: "", hn: "", t: "", ti: 0 }
+      const past2ndFPlural: HebrewFormData = activeForms.past2ndFPlural || { h: "", hn: "", t: "", ti: 0 }
+      const past3rdMSingular: HebrewFormData = activeForms.past3rdMSingular || { h: "", hn: "", t: "", ti: 0 }
+      const past3rdFSingular: HebrewFormData = activeForms.past3rdFSingular || { h: "", hn: "", t: "", ti: 0 }
+      const past3rdPlural: HebrewFormData = activeForms.past3rdMPlural || { h: "", hn: "", t: "", ti: 0 }
 
-          return false // break
-        }
-      })
+      // Parse passive forms if they exist
+      let passiveMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast1stSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast1stPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast2ndMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast2ndFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast2ndMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast2ndFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast3rdMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast3rdFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passivePast3rdPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture1stSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture1stPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture2ndMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture2ndFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture2ndMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture2ndFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture3rdMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture3rdFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture3rdMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      let passiveFuture3rdFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
 
-      // Parse imperative forms - search for row containing "Imperative"
-      let imperativeMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let imperativeFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let imperativeMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let imperativeFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
+      if (hasPassiveForms && passiveTable) {
+        const passiveTableRef: cheerio.Cheerio<any> = passiveTable
+        const passiveForms = parseVerbForms(passiveTableRef, "passive-", false, false)
 
-      table.find("tr").each((_, row) => {
-        const th = $(row).find("th").first()
-        const thText = th.text().trim()
-        if (thText.includes("Imperative")) {
-          // Find imperative forms: IMP-2ms, IMP-2fs, IMP-2mp, IMP-2fp
-          const impMsForm = findFormDataAndTd("IMP-2ms")
-          if (impMsForm) {
-            const impMsData = extractFormData(impMsForm.div, $)
-            imperativeMSingular = { ...impMsData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const impMsVariationsDirect = extractVerbVariations(impMsForm.div, $)
-            const impMsVariationsAux = extractVariations(impMsForm.td, $)
-            const allImpMsVariations = [...impMsVariationsDirect, ...impMsVariationsAux]
-            if (allImpMsVariations.length > 0) {
-              imperativeMSingular.variations = allImpMsVariations
-            }
-          }
-
-          const impFsForm = findFormDataAndTd("IMP-2fs")
-          if (impFsForm) {
-            const impFsData = extractFormData(impFsForm.div, $)
-            imperativeFSingular = { ...impFsData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const impFsVariationsDirect = extractVerbVariations(impFsForm.div, $)
-            const impFsVariationsAux = extractVariations(impFsForm.td, $)
-            const allImpFsVariations = [...impFsVariationsDirect, ...impFsVariationsAux]
-            if (allImpFsVariations.length > 0) {
-              imperativeFSingular.variations = allImpFsVariations
-            }
-          }
-
-          const impMpForm = findFormDataAndTd("IMP-2mp")
-          if (impMpForm) {
-            const impMpData = extractFormData(impMpForm.div, $)
-            imperativeMPlural = { ...impMpData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const impMpVariationsDirect = extractVerbVariations(impMpForm.div, $)
-            const impMpVariationsAux = extractVariations(impMpForm.td, $)
-            const allImpMpVariations = [...impMpVariationsDirect, ...impMpVariationsAux]
-            if (allImpMpVariations.length > 0) {
-              imperativeMPlural.variations = allImpMpVariations
-            }
-          }
-
-          const impFpForm = findFormDataAndTd("IMP-2fp")
-          if (impFpForm) {
-            const impFpData = extractFormData(impFpForm.div, $)
-            imperativeFPlural = { ...impFpData }
-            // Extract variations: check both direct child divs AND aux-forms (for hidden variations)
-            const impFpVariationsDirect = extractVerbVariations(impFpForm.div, $)
-            // Filter out "In modern language, the masculine form is generally used" for imperative feminine plural
-            const impFpVariationsAux = extractVariations(impFpForm.td, $, false, true)
-            const allImpFpVariations = [...impFpVariationsDirect, ...impFpVariationsAux]
-            if (allImpFpVariations.length > 0) {
-              imperativeFPlural.variations = allImpFpVariations
-            }
-          }
-
-          return false // break
-        }
-      })
-
-      // Remove exclamation marks from imperative forms
-      imperativeMSingular = removeExclamationMarks(imperativeMSingular)
-      imperativeFSingular = removeExclamationMarks(imperativeFSingular)
-      imperativeMPlural = removeExclamationMarks(imperativeMPlural)
-      imperativeFPlural = removeExclamationMarks(imperativeFPlural)
-
-      // Parse future tense forms - search for row containing "Future tense"
-      // Note: 1st person has only 2 forms: IMPF-1s (singular, used for both m and f) and IMPF-1p (plural, used for both m and f)
-      let future1stSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future1stPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future2ndMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future2ndFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future2ndMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future2ndFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future3rdMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future3rdFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future3rdMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let future3rdFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-
-      table.find("tr").each((_, row) => {
-        const th = $(row).find("th").first()
-        const thText = th.text().trim()
-        if (thText.includes("Future tense")) {
-          // 1st person - only 2 forms (singular and plural, used for both m and f)
-          const fut1sForm = findFormDataAndTd("IMPF-1s")
-          if (fut1sForm) {
-            const fut1sData = extractFormData(fut1sForm.div, $)
-            future1stSingular = { ...fut1sData }
-            const fut1sVariationsDirect = extractVerbVariations(fut1sForm.div, $)
-            const fut1sVariationsAux = extractVariations(fut1sForm.td, $)
-            const allFut1sVariations = [...fut1sVariationsDirect, ...fut1sVariationsAux]
-            if (allFut1sVariations.length > 0) {
-              future1stSingular.variations = allFut1sVariations
-            }
-          }
-
-          const fut1pForm = findFormDataAndTd("IMPF-1p")
-          if (fut1pForm) {
-            const fut1pData = extractFormData(fut1pForm.div, $)
-            future1stPlural = { ...fut1pData }
-            const fut1pVariationsDirect = extractVerbVariations(fut1pForm.div, $)
-            const fut1pVariationsAux = extractVariations(fut1pForm.td, $)
-            const allFut1pVariations = [...fut1pVariationsDirect, ...fut1pVariationsAux]
-            if (allFut1pVariations.length > 0) {
-              future1stPlural.variations = allFut1pVariations
-            }
-          }
-
-          // 2nd person
-          const fut2MsForm = findFormDataAndTd("IMPF-2ms")
-          if (fut2MsForm) {
-            const fut2MsData = extractFormData(fut2MsForm.div, $)
-            future2ndMSingular = { ...fut2MsData }
-            const fut2MsVariationsDirect = extractVerbVariations(fut2MsForm.div, $)
-            const fut2MsVariationsAux = extractVariations(fut2MsForm.td, $)
-            const allFut2MsVariations = [...fut2MsVariationsDirect, ...fut2MsVariationsAux]
-            if (allFut2MsVariations.length > 0) {
-              future2ndMSingular.variations = allFut2MsVariations
-            }
-          }
-
-          const fut2FsForm = findFormDataAndTd("IMPF-2fs")
-          if (fut2FsForm) {
-            const fut2FsData = extractFormData(fut2FsForm.div, $)
-            future2ndFSingular = { ...fut2FsData }
-            const fut2FsVariationsDirect = extractVerbVariations(fut2FsForm.div, $)
-            const fut2FsVariationsAux = extractVariations(fut2FsForm.td, $)
-            const allFut2FsVariations = [...fut2FsVariationsDirect, ...fut2FsVariationsAux]
-            if (allFut2FsVariations.length > 0) {
-              future2ndFSingular.variations = allFut2FsVariations
-            }
-          }
-
-          const fut2MpForm = findFormDataAndTd("IMPF-2mp")
-          if (fut2MpForm) {
-            const fut2MpData = extractFormData(fut2MpForm.div, $)
-            future2ndMPlural = { ...fut2MpData }
-            const fut2MpVariationsDirect = extractVerbVariations(fut2MpForm.div, $)
-            const fut2MpVariationsAux = extractVariations(fut2MpForm.td, $)
-            const allFut2MpVariations = [...fut2MpVariationsDirect, ...fut2MpVariationsAux]
-            if (allFut2MpVariations.length > 0) {
-              future2ndMPlural.variations = allFut2MpVariations
-            }
-          }
-
-          const fut2FpForm = findFormDataAndTd("IMPF-2fp")
-          if (fut2FpForm) {
-            const fut2FpData = extractFormData(fut2FpForm.div, $)
-            future2ndFPlural = { ...fut2FpData }
-            const fut2FpVariationsDirect = extractVerbVariations(fut2FpForm.div, $)
-            // Filter out "In modern language, the masculine form is generally used" for 2nd person feminine plural
-            const fut2FpVariationsAux = extractVariations(fut2FpForm.td, $, false, true)
-            const allFut2FpVariations = [...fut2FpVariationsDirect, ...fut2FpVariationsAux]
-            if (allFut2FpVariations.length > 0) {
-              future2ndFPlural.variations = allFut2FpVariations
-            }
-          }
-
-          // 3rd person
-          const fut3MsForm = findFormDataAndTd("IMPF-3ms")
-          if (fut3MsForm) {
-            const fut3MsData = extractFormData(fut3MsForm.div, $)
-            future3rdMSingular = { ...fut3MsData }
-            const fut3MsVariationsDirect = extractVerbVariations(fut3MsForm.div, $)
-            const fut3MsVariationsAux = extractVariations(fut3MsForm.td, $)
-            const allFut3MsVariations = [...fut3MsVariationsDirect, ...fut3MsVariationsAux]
-            if (allFut3MsVariations.length > 0) {
-              future3rdMSingular.variations = allFut3MsVariations
-            }
-          }
-
-          const fut3FsForm = findFormDataAndTd("IMPF-3fs")
-          if (fut3FsForm) {
-            const fut3FsData = extractFormData(fut3FsForm.div, $)
-            future3rdFSingular = { ...fut3FsData }
-            const fut3FsVariationsDirect = extractVerbVariations(fut3FsForm.div, $)
-            const fut3FsVariationsAux = extractVariations(fut3FsForm.td, $)
-            const allFut3FsVariations = [...fut3FsVariationsDirect, ...fut3FsVariationsAux]
-            if (allFut3FsVariations.length > 0) {
-              future3rdFSingular.variations = allFut3FsVariations
-            }
-          }
-
-          const fut3MpForm = findFormDataAndTd("IMPF-3mp")
-          if (fut3MpForm) {
-            const fut3MpData = extractFormData(fut3MpForm.div, $)
-            future3rdMPlural = { ...fut3MpData }
-            const fut3MpVariationsDirect = extractVerbVariations(fut3MpForm.div, $)
-            const fut3MpVariationsAux = extractVariations(fut3MpForm.td, $)
-            const allFut3MpVariations = [...fut3MpVariationsDirect, ...fut3MpVariationsAux]
-            if (allFut3MpVariations.length > 0) {
-              future3rdMPlural.variations = allFut3MpVariations
-            }
-          }
-
-          const fut3FpForm = findFormDataAndTd("IMPF-3fp")
-          if (fut3FpForm) {
-            const fut3FpData = extractFormData(fut3FpForm.div, $)
-            future3rdFPlural = { ...fut3FpData }
-            const fut3FpVariationsDirect = extractVerbVariations(fut3FpForm.div, $)
-            // Filter out "In modern language, the masculine form is generally used" for 3rd person feminine plural
-            const fut3FpVariationsAux = extractVariations(fut3FpForm.td, $, false, true)
-            const allFut3FpVariations = [...fut3FpVariationsDirect, ...fut3FpVariationsAux]
-            if (allFut3FpVariations.length > 0) {
-              future3rdFPlural.variations = allFut3FpVariations
-            }
-          }
-
-          return false // break
-        }
-      })
-
-      // Parse past tense forms - search for row containing "Past tense"
-      // Note: 1st person has only 2 forms: PERF-1s (singular, used for both m and f) and PERF-1p (plural, used for both m and f)
-      // 3rd person plural has only 1 form: PERF-3p (used for both m and f)
-      let past1stSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past1stPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past2ndMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past2ndFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past2ndMPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past2ndFPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past3rdMSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past3rdFSingular: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-      let past3rdPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
-
-      table.find("tr").each((_, row) => {
-        const th = $(row).find("th").first()
-        const thText = th.text().trim()
-        if (thText.includes("Past tense")) {
-          // 1st person - only 2 forms (singular and plural, used for both m and f)
-          const past1sForm = findFormDataAndTd("PERF-1s")
-          if (past1sForm) {
-            const past1sData = extractFormData(past1sForm.div, $)
-            past1stSingular = { ...past1sData }
-            const past1sVariationsDirect = extractVerbVariations(past1sForm.div, $)
-            const past1sVariationsAux = extractVariations(past1sForm.td, $)
-            const allPast1sVariations = [...past1sVariationsDirect, ...past1sVariationsAux]
-            if (allPast1sVariations.length > 0) {
-              past1stSingular.variations = allPast1sVariations
-            }
-          }
-
-          const past1pForm = findFormDataAndTd("PERF-1p")
-          if (past1pForm) {
-            const past1pData = extractFormData(past1pForm.div, $)
-            past1stPlural = { ...past1pData }
-            const past1pVariationsDirect = extractVerbVariations(past1pForm.div, $)
-            const past1pVariationsAux = extractVariations(past1pForm.td, $)
-            const allPast1pVariations = [...past1pVariationsDirect, ...past1pVariationsAux]
-            if (allPast1pVariations.length > 0) {
-              past1stPlural.variations = allPast1pVariations
-            }
-          }
-
-          // 2nd person
-          const past2MsForm = findFormDataAndTd("PERF-2ms")
-          if (past2MsForm) {
-            const past2MsData = extractFormData(past2MsForm.div, $)
-            past2ndMSingular = { ...past2MsData }
-            const past2MsVariationsDirect = extractVerbVariations(past2MsForm.div, $)
-            const past2MsVariationsAux = extractVariations(past2MsForm.td, $)
-            const allPast2MsVariations = [...past2MsVariationsDirect, ...past2MsVariationsAux]
-            if (allPast2MsVariations.length > 0) {
-              past2ndMSingular.variations = allPast2MsVariations
-            }
-          }
-
-          const past2FsForm = findFormDataAndTd("PERF-2fs")
-          if (past2FsForm) {
-            const past2FsData = extractFormData(past2FsForm.div, $)
-            past2ndFSingular = { ...past2FsData }
-            const past2FsVariationsDirect = extractVerbVariations(past2FsForm.div, $)
-            const past2FsVariationsAux = extractVariations(past2FsForm.td, $)
-            const allPast2FsVariations = [...past2FsVariationsDirect, ...past2FsVariationsAux]
-            if (allPast2FsVariations.length > 0) {
-              past2ndFSingular.variations = allPast2FsVariations
-            }
-          }
-
-          const past2MpForm = findFormDataAndTd("PERF-2mp")
-          if (past2MpForm) {
-            const past2MpData = extractFormData(past2MpForm.div, $)
-            past2ndMPlural = { ...past2MpData }
-            const past2MpVariationsDirect = extractVerbVariations(past2MpForm.div, $)
-            // Filter out "The ending is usually unstressed in spoken language" for 2nd person masculine plural
-            const past2MpVariationsAux = extractVariations(past2MpForm.td, $, true, false)
-            const allPast2MpVariations = [...past2MpVariationsDirect, ...past2MpVariationsAux]
-            if (allPast2MpVariations.length > 0) {
-              past2ndMPlural.variations = allPast2MpVariations
-            }
-          }
-
-          const past2FpForm = findFormDataAndTd("PERF-2fp")
-          if (past2FpForm) {
-            const past2FpData = extractFormData(past2FpForm.div, $)
-            past2ndFPlural = { ...past2FpData }
-            const past2FpVariationsDirect = extractVerbVariations(past2FpForm.div, $)
-            // Filter out "The ending is usually unstressed in spoken language" for 2nd person feminine plural
-            const past2FpVariationsAux = extractVariations(past2FpForm.td, $, true, false)
-            const allPast2FpVariations = [...past2FpVariationsDirect, ...past2FpVariationsAux]
-            if (allPast2FpVariations.length > 0) {
-              past2ndFPlural.variations = allPast2FpVariations
-            }
-          }
-
-          // 3rd person
-          const past3MsForm = findFormDataAndTd("PERF-3ms")
-          if (past3MsForm) {
-            const past3MsData = extractFormData(past3MsForm.div, $)
-            past3rdMSingular = { ...past3MsData }
-            const past3MsVariationsDirect = extractVerbVariations(past3MsForm.div, $)
-            const past3MsVariationsAux = extractVariations(past3MsForm.td, $)
-            const allPast3MsVariations = [...past3MsVariationsDirect, ...past3MsVariationsAux]
-            if (allPast3MsVariations.length > 0) {
-              past3rdMSingular.variations = allPast3MsVariations
-            }
-          }
-
-          const past3FsForm = findFormDataAndTd("PERF-3fs")
-          if (past3FsForm) {
-            const past3FsData = extractFormData(past3FsForm.div, $)
-            past3rdFSingular = { ...past3FsData }
-            const past3FsVariationsDirect = extractVerbVariations(past3FsForm.div, $)
-            const past3FsVariationsAux = extractVariations(past3FsForm.td, $)
-            const allPast3FsVariations = [...past3FsVariationsDirect, ...past3FsVariationsAux]
-            if (allPast3FsVariations.length > 0) {
-              past3rdFSingular.variations = allPast3FsVariations
-            }
-          }
-
-          const past3pForm = findFormDataAndTd("PERF-3p")
-          if (past3pForm) {
-            const past3pData = extractFormData(past3pForm.div, $)
-            past3rdPlural = { ...past3pData }
-            const past3pVariationsDirect = extractVerbVariations(past3pForm.div, $)
-            const past3pVariationsAux = extractVariations(past3pForm.td, $)
-            const allPast3pVariations = [...past3pVariationsDirect, ...past3pVariationsAux]
-            if (allPast3pVariations.length > 0) {
-              past3rdPlural.variations = allPast3pVariations
-            }
-          }
-
-          return false // break
-        }
-      })
+        passiveMSingular = passiveForms.mSingular || passiveMSingular
+        passiveFSingular = passiveForms.fSingular || passiveFSingular
+        passiveMPlural = passiveForms.mPlural || passiveMPlural
+        passiveFPlural = passiveForms.fPlural || passiveFPlural
+        passivePast1stSingular = passiveForms.past1stMSingular || passivePast1stSingular
+        passivePast1stPlural = passiveForms.past1stMPlural || passivePast1stPlural
+        passivePast2ndMSingular = passiveForms.past2ndMSingular || passivePast2ndMSingular
+        passivePast2ndFSingular = passiveForms.past2ndFSingular || passivePast2ndFSingular
+        passivePast2ndMPlural = passiveForms.past2ndMPlural || passivePast2ndMPlural
+        passivePast2ndFPlural = passiveForms.past2ndFPlural || passivePast2ndFPlural
+        passivePast3rdMSingular = passiveForms.past3rdMSingular || passivePast3rdMSingular
+        passivePast3rdFSingular = passiveForms.past3rdFSingular || passivePast3rdFSingular
+        passivePast3rdPlural = passiveForms.past3rdMPlural || passivePast3rdPlural
+        passiveFuture1stSingular = passiveForms.future1stMSingular || passiveFuture1stSingular
+        passiveFuture1stPlural = passiveForms.future1stMPlural || passiveFuture1stPlural
+        passiveFuture2ndMSingular = passiveForms.future2ndMSingular || passiveFuture2ndMSingular
+        passiveFuture2ndFSingular = passiveForms.future2ndFSingular || passiveFuture2ndFSingular
+        passiveFuture2ndMPlural = passiveForms.future2ndMPlural || passiveFuture2ndMPlural
+        passiveFuture2ndFPlural = passiveForms.future2ndFPlural || passiveFuture2ndFPlural
+        passiveFuture3rdMSingular = passiveForms.future3rdMSingular || passiveFuture3rdMSingular
+        passiveFuture3rdFSingular = passiveForms.future3rdFSingular || passiveFuture3rdFSingular
+        passiveFuture3rdMPlural = passiveForms.future3rdMPlural || passiveFuture3rdMPlural
+        passiveFuture3rdFPlural = passiveForms.future3rdFPlural || passiveFuture3rdFPlural
+      }
 
       // Apply transliteration replacement if enabled
       const processedInfinitive = applyTransliterationReplacement(infinitive, useChToKh, useTzToC)
@@ -793,10 +670,38 @@ export async function POST(request: NextRequest) {
       const processedPast3rdPlural = applyTransliterationReplacement(past3rdPlural, useChToKh, useTzToC)
       const processedPast3rdMPlural = processedPast3rdPlural
 
+      // Process passive forms if they exist
+      const processedPassiveMSingular = applyTransliterationReplacement(passiveMSingular, useChToKh, useTzToC)
+      const processedPassiveFSingular = applyTransliterationReplacement(passiveFSingular, useChToKh, useTzToC)
+      const processedPassiveMPlural = applyTransliterationReplacement(passiveMPlural, useChToKh, useTzToC)
+      const processedPassiveFPlural = applyTransliterationReplacement(passiveFPlural, useChToKh, useTzToC)
+
+      const processedPassivePast1stMSingular = applyTransliterationReplacement(passivePast1stSingular, useChToKh, useTzToC)
+      const processedPassivePast1stMPlural = applyTransliterationReplacement(passivePast1stPlural, useChToKh, useTzToC)
+      const processedPassivePast2ndMSingular = applyTransliterationReplacement(passivePast2ndMSingular, useChToKh, useTzToC)
+      const processedPassivePast2ndFSingular = applyTransliterationReplacement(passivePast2ndFSingular, useChToKh, useTzToC)
+      const processedPassivePast2ndMPlural = applyTransliterationReplacement(passivePast2ndMPlural, useChToKh, useTzToC)
+      const processedPassivePast2ndFPlural = applyTransliterationReplacement(passivePast2ndFPlural, useChToKh, useTzToC)
+      const processedPassivePast3rdMSingular = applyTransliterationReplacement(passivePast3rdMSingular, useChToKh, useTzToC)
+      const processedPassivePast3rdFSingular = applyTransliterationReplacement(passivePast3rdFSingular, useChToKh, useTzToC)
+      const processedPassivePast3rdMPlural = applyTransliterationReplacement(passivePast3rdPlural, useChToKh, useTzToC)
+
+      const processedPassiveFuture1stMSingular = applyTransliterationReplacement(passiveFuture1stSingular, useChToKh, useTzToC)
+      const processedPassiveFuture1stMPlural = applyTransliterationReplacement(passiveFuture1stPlural, useChToKh, useTzToC)
+      const processedPassiveFuture2ndMSingular = applyTransliterationReplacement(passiveFuture2ndMSingular, useChToKh, useTzToC)
+      const processedPassiveFuture2ndFSingular = applyTransliterationReplacement(passiveFuture2ndFSingular, useChToKh, useTzToC)
+      const processedPassiveFuture2ndMPlural = applyTransliterationReplacement(passiveFuture2ndMPlural, useChToKh, useTzToC)
+      const processedPassiveFuture2ndFPlural = applyTransliterationReplacement(passiveFuture2ndFPlural, useChToKh, useTzToC)
+      const processedPassiveFuture3rdMSingular = applyTransliterationReplacement(passiveFuture3rdMSingular, useChToKh, useTzToC)
+      const processedPassiveFuture3rdFSingular = applyTransliterationReplacement(passiveFuture3rdFSingular, useChToKh, useTzToC)
+      const processedPassiveFuture3rdMPlural = applyTransliterationReplacement(passiveFuture3rdMPlural, useChToKh, useTzToC)
+      const processedPassiveFuture3rdFPlural = applyTransliterationReplacement(passiveFuture3rdFPlural, useChToKh, useTzToC)
+
       // Remove "to " from meaning for imperative only
       // Change "to " to "will " for future tense only
       const imperativeMeaning = (meaning || "").replaceAll("to ", "")
       const futureMeaning = (meaning || "").replaceAll("to ", "will ")
+      const passiveFutureMeaning = hasPassiveForms ? (meaning || "").replaceAll("to ", "will be ") : undefined
 
       result = {
         pos: "verb",
@@ -838,7 +743,34 @@ export async function POST(request: NextRequest) {
         future3rdFSingular: processedFuture3rdFSingular,
         future3rdMPlural: processedFuture3rdMPlural,
         future3rdFPlural: processedFuture3rdFPlural,
-        futureMeaning: futureMeaning
+        futureMeaning: futureMeaning,
+
+        // Passive forms
+        passiveBinyan: passiveBinyan || undefined,
+        passiveMSingular: processedPassiveMSingular.h || processedPassiveMSingular.hn ? processedPassiveMSingular : undefined,
+        passiveFSingular: processedPassiveFSingular.h || processedPassiveFSingular.hn ? processedPassiveFSingular : undefined,
+        passiveMPlural: processedPassiveMPlural.h || processedPassiveMPlural.hn ? processedPassiveMPlural : undefined,
+        passiveFPlural: processedPassiveFPlural.h || processedPassiveFPlural.hn ? processedPassiveFPlural : undefined,
+        passivePast1stMSingular: processedPassivePast1stMSingular.h || processedPassivePast1stMSingular.hn ? processedPassivePast1stMSingular : undefined,
+        passivePast1stMPlural: processedPassivePast1stMPlural.h || processedPassivePast1stMPlural.hn ? processedPassivePast1stMPlural : undefined,
+        passivePast2ndMSingular: processedPassivePast2ndMSingular.h || processedPassivePast2ndMSingular.hn ? processedPassivePast2ndMSingular : undefined,
+        passivePast2ndFSingular: processedPassivePast2ndFSingular.h || processedPassivePast2ndFSingular.hn ? processedPassivePast2ndFSingular : undefined,
+        passivePast2ndMPlural: processedPassivePast2ndMPlural.h || processedPassivePast2ndMPlural.hn ? processedPassivePast2ndMPlural : undefined,
+        passivePast2ndFPlural: processedPassivePast2ndFPlural.h || processedPassivePast2ndFPlural.hn ? processedPassivePast2ndFPlural : undefined,
+        passivePast3rdMSingular: processedPassivePast3rdMSingular.h || processedPassivePast3rdMSingular.hn ? processedPassivePast3rdMSingular : undefined,
+        passivePast3rdFSingular: processedPassivePast3rdFSingular.h || processedPassivePast3rdFSingular.hn ? processedPassivePast3rdFSingular : undefined,
+        passivePast3rdMPlural: processedPassivePast3rdMPlural.h || processedPassivePast3rdMPlural.hn ? processedPassivePast3rdMPlural : undefined,
+        passiveFuture1stMSingular: processedPassiveFuture1stMSingular.h || processedPassiveFuture1stMSingular.hn ? processedPassiveFuture1stMSingular : undefined,
+        passiveFuture1stMPlural: processedPassiveFuture1stMPlural.h || processedPassiveFuture1stMPlural.hn ? processedPassiveFuture1stMPlural : undefined,
+        passiveFuture2ndMSingular: processedPassiveFuture2ndMSingular.h || processedPassiveFuture2ndMSingular.hn ? processedPassiveFuture2ndMSingular : undefined,
+        passiveFuture2ndFSingular: processedPassiveFuture2ndFSingular.h || processedPassiveFuture2ndFSingular.hn ? processedPassiveFuture2ndFSingular : undefined,
+        passiveFuture2ndMPlural: processedPassiveFuture2ndMPlural.h || processedPassiveFuture2ndMPlural.hn ? processedPassiveFuture2ndMPlural : undefined,
+        passiveFuture2ndFPlural: processedPassiveFuture2ndFPlural.h || processedPassiveFuture2ndFPlural.hn ? processedPassiveFuture2ndFPlural : undefined,
+        passiveFuture3rdMSingular: processedPassiveFuture3rdMSingular.h || processedPassiveFuture3rdMSingular.hn ? processedPassiveFuture3rdMSingular : undefined,
+        passiveFuture3rdFSingular: processedPassiveFuture3rdFSingular.h || processedPassiveFuture3rdFSingular.hn ? processedPassiveFuture3rdFSingular : undefined,
+        passiveFuture3rdMPlural: processedPassiveFuture3rdMPlural.h || processedPassiveFuture3rdMPlural.hn ? processedPassiveFuture3rdMPlural : undefined,
+        passiveFuture3rdFPlural: processedPassiveFuture3rdFPlural.h || processedPassiveFuture3rdFPlural.hn ? processedPassiveFuture3rdFPlural : undefined,
+        passiveFutureMeaning: passiveFutureMeaning
       }
 
       // Generate and save HTML file

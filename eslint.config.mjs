@@ -18,7 +18,8 @@ const eslintConfig = defineConfig([
       "no-trailing-spaces": "error",
       "comma-dangle": ["error", "never"],
       "semi": ["error", "never"],
-      "indent": ["error", 2]
+      "indent": ["error", 2],
+      "@typescript-eslint/no-explicit-any": "off"
     }
   }
 ])

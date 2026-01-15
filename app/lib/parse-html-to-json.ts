@@ -3,7 +3,7 @@ import { TILDE } from "@/app/constants"
 import { NIQQUD_REGEX, CH_REGEX, TZ_REGEX } from "@/app/constants/regex"
 
 // Helper function to extract form data (h, hn, t, ti) from a div element
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export function extractFormData(formDiv: cheerio.Cheerio<any>, $: cheerio.CheerioAPI) {
   let h = ""
   let hn = ""
@@ -53,7 +53,7 @@ export function extractFormData(formDiv: cheerio.Cheerio<any>, $: cheerio.Cheeri
 // Helper function to extract variations from a td.conj-td
 // filterUnstressedEnding: if true, filter out "The ending is usually unstressed in spoken language" variations
 // filterModernLanguage: if true, filter out "In modern language, the masculine form is generally used" variations
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export function extractVariations(td: cheerio.Cheerio<any>, $: cheerio.CheerioAPI, filterUnstressedEnding: boolean = false, filterModernLanguage: boolean = false): Array<{ h: string; hn: string; t: string; ti: number }> {
   const variations: Array<{ h: string; hn: string; t: string; ti: number }> = []
 
@@ -79,7 +79,7 @@ export function extractVariations(td: cheerio.Cheerio<any>, $: cheerio.CheerioAP
       const shouldFilterUnstressedEnding = filterUnstressedEnding && containerText.includes("The ending is usually unstressed in spoken language")
 
       // Helper function to process a div and extract variation
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      
       const processDiv = (childDiv: any) => {
         const currentDiv = $(childDiv)
         // Look for structured form data (div[id="s"] or div[id="p"] or div[id="ms-a"], etc., or verb forms)
@@ -175,7 +175,7 @@ export function extractVariations(td: cheerio.Cheerio<any>, $: cheerio.CheerioAP
 
 // Helper function to extract verb variations directly from the form div
 // Verb variations are nested directly within the same div (e.g., div[id="AP-fs"] contains multiple divs)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export function extractVerbVariations(formDiv: cheerio.Cheerio<any>, $: cheerio.CheerioAPI): Array<{ h: string; hn: string; t: string; ti: number }> {
   const variations: Array<{ h: string; hn: string; t: string; ti: number }> = []
 

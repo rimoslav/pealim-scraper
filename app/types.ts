@@ -74,6 +74,35 @@ export type VerbResult = {
   future3rdMPlural?: HebrewFormData;
   future3rdFPlural?: HebrewFormData;
   futureMeaning?: string;
+
+  // Passive forms
+  passiveBinyan?: string;
+  passiveMSingular?: HebrewFormData;
+  passiveFSingular?: HebrewFormData;
+  passiveMPlural?: HebrewFormData;
+  passiveFPlural?: HebrewFormData;
+
+  passivePast1stMSingular?: HebrewFormData;
+  passivePast1stMPlural?: HebrewFormData;
+  passivePast2ndMSingular?: HebrewFormData;
+  passivePast2ndFSingular?: HebrewFormData;
+  passivePast2ndMPlural?: HebrewFormData;
+  passivePast2ndFPlural?: HebrewFormData;
+  passivePast3rdMSingular?: HebrewFormData;
+  passivePast3rdFSingular?: HebrewFormData;
+  passivePast3rdMPlural?: HebrewFormData;
+
+  passiveFuture1stMSingular?: HebrewFormData;
+  passiveFuture1stMPlural?: HebrewFormData;
+  passiveFuture2ndMSingular?: HebrewFormData;
+  passiveFuture2ndFSingular?: HebrewFormData;
+  passiveFuture2ndMPlural?: HebrewFormData;
+  passiveFuture2ndFPlural?: HebrewFormData;
+  passiveFuture3rdMSingular?: HebrewFormData;
+  passiveFuture3rdFSingular?: HebrewFormData;
+  passiveFuture3rdMPlural?: HebrewFormData;
+  passiveFuture3rdFPlural?: HebrewFormData;
+  passiveFutureMeaning?: string;
 };
 
 // Union type for all result types
@@ -202,5 +231,34 @@ export type GenerateHTMLData = {
   future3rdMPlural?: HebrewFormData;
   future3rdFPlural?: HebrewFormData;
   futureMeaning?: string;
+
+  // Passive forms
+  passiveBinyan?: string;
+  passiveMSingular?: HebrewFormData;
+  passiveFSingular?: HebrewFormData;
+  passiveMPlural?: HebrewFormData;
+  passiveFPlural?: HebrewFormData;
+
+  passivePast1stMSingular?: HebrewFormData;
+  passivePast1stMPlural?: HebrewFormData;
+  passivePast2ndMSingular?: HebrewFormData;
+  passivePast2ndFSingular?: HebrewFormData;
+  passivePast2ndMPlural?: HebrewFormData;
+  passivePast2ndFPlural?: HebrewFormData;
+  passivePast3rdMSingular?: HebrewFormData;
+  passivePast3rdFSingular?: HebrewFormData;
+  passivePast3rdMPlural?: HebrewFormData;
+
+  passiveFuture1stMSingular?: HebrewFormData;
+  passiveFuture1stMPlural?: HebrewFormData;
+  passiveFuture2ndMSingular?: HebrewFormData;
+  passiveFuture2ndFSingular?: HebrewFormData;
+  passiveFuture2ndMPlural?: HebrewFormData;
+  passiveFuture2ndFPlural?: HebrewFormData;
+  passiveFuture3rdMSingular?: HebrewFormData;
+  passiveFuture3rdFSingular?: HebrewFormData;
+  passiveFuture3rdMPlural?: HebrewFormData;
+  passiveFuture3rdFPlural?: HebrewFormData;
+  passiveFutureMeaning?: string;
 };
 

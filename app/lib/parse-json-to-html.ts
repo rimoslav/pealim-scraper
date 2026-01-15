@@ -341,6 +341,14 @@ function generateTableContainer(tableId: string, rowHTML: string, buttonLabel: s
   </div>`
 }
 
+// Helper function to generate section header
+function generateSectionHeader(title: string, subtitle: string = ""): string {
+  if (subtitle) {
+    return `<h3 class="page-header" style="margin-top: 40px; margin-bottom: 20px; font-size: 1.5em; font-weight: bold;">${title} <span class="small" style="font-size: 0.8em; font-weight: normal; color: #666;">${subtitle}</span></h3>`
+  }
+  return `<h3 class="page-header" style="margin-top: 40px; margin-bottom: 20px; font-size: 1.5em; font-weight: bold;">${title}</h3>`
+}
+
 // Helper function to generate complete HTML file
 export function generateHTML(data: GenerateHTMLData): string {
   const tables: string[] = []
@@ -374,6 +382,9 @@ export function generateHTML(data: GenerateHTMLData): string {
     const tableId = `table-${baseId}`
     tables.push(generateTableContainer(tableId, rowHTML))
   } else if (data.pos === "verb" && data.infinitive && data.mSingular && data.fSingular && data.mPlural && data.fPlural) {
+    // Add "Active forms" header
+    tables.push(generateSectionHeader("Active forms", `Binyan ${data.binyan || ""}`))
+
     // Present tense table
     const presentRowHTML = generatePresentTenseHTMLRow({
       meaning: data.meaning,
@@ -459,6 +470,81 @@ export function generateHTML(data: GenerateHTMLData): string {
 
       const futureTableId = `table-${baseId}-future`
       tables.push(generateTableContainer(futureTableId, futureRowHTML, "Copy Future Tense Table"))
+    }
+
+    // Passive forms section
+    if (data.passiveBinyan && data.passiveMSingular && data.passiveFSingular && data.passiveMPlural && data.passiveFPlural) {
+      // Add "Passive forms" header
+      tables.push(generateSectionHeader("Passive forms", `Binyan ${data.passiveBinyan}`))
+
+      // Passive present tense table (no infinitive for passive)
+      const passivePresentRowHTML = generatePresentTenseHTMLRow({
+        meaning: data.meaning,
+        infinitive: { h: "", hn: "", t: "", ti: 0 }, // No infinitive for passive
+        mSingular: data.passiveMSingular,
+        fSingular: data.passiveFSingular,
+        mPlural: data.passiveMPlural,
+        fPlural: data.passiveFPlural,
+        root: data.root,
+        binyan: data.passiveBinyan,
+        url: data.url
+      })
+
+      const passivePresentTableId = `table-${baseId}-passive-present`
+      tables.push(generateTableContainer(passivePresentTableId, passivePresentRowHTML, "Copy Passive Present Tense Table"))
+
+      // Passive past tense table (if passive past tense data exists)
+      if (
+        data.passivePast1stMSingular && data.passivePast1stMPlural &&
+        data.passivePast2ndMSingular && data.passivePast2ndFSingular && data.passivePast2ndMPlural && data.passivePast2ndFPlural &&
+        data.passivePast3rdMSingular && data.passivePast3rdFSingular && data.passivePast3rdMPlural
+      ) {
+        const passivePastRowHTML = generatePastTenseHTMLRow({
+          meaning: data.meaning,
+          past1stMSingular: data.passivePast1stMSingular,
+          past1stMPlural: data.passivePast1stMPlural,
+          past2ndMSingular: data.passivePast2ndMSingular,
+          past2ndFSingular: data.passivePast2ndFSingular,
+          past2ndMPlural: data.passivePast2ndMPlural,
+          past2ndFPlural: data.passivePast2ndFPlural,
+          past3rdMSingular: data.passivePast3rdMSingular,
+          past3rdFSingular: data.passivePast3rdFSingular,
+          past3rdMPlural: data.passivePast3rdMPlural,
+          root: data.root,
+          binyan: data.passiveBinyan,
+          url: data.url
+        })
+
+        const passivePastTableId = `table-${baseId}-passive-past`
+        tables.push(generateTableContainer(passivePastTableId, passivePastRowHTML, "Copy Passive Past Tense Table"))
+      }
+
+      // Passive future tense table (if passive future tense data exists)
+      if (
+        data.passiveFuture1stMSingular && data.passiveFuture1stMPlural &&
+        data.passiveFuture2ndMSingular && data.passiveFuture2ndFSingular && data.passiveFuture2ndMPlural && data.passiveFuture2ndFPlural &&
+        data.passiveFuture3rdMSingular && data.passiveFuture3rdFSingular && data.passiveFuture3rdMPlural && data.passiveFuture3rdFPlural
+      ) {
+        const passiveFutureRowHTML = generateFutureTenseHTMLRow({
+          meaning: data.passiveFutureMeaning || data.meaning,
+          future1stMSingular: data.passiveFuture1stMSingular,
+          future1stMPlural: data.passiveFuture1stMPlural,
+          future2ndMSingular: data.passiveFuture2ndMSingular,
+          future2ndFSingular: data.passiveFuture2ndFSingular,
+          future2ndMPlural: data.passiveFuture2ndMPlural,
+          future2ndFPlural: data.passiveFuture2ndFPlural,
+          future3rdMSingular: data.passiveFuture3rdMSingular,
+          future3rdFSingular: data.passiveFuture3rdFSingular,
+          future3rdMPlural: data.passiveFuture3rdMPlural,
+          future3rdFPlural: data.passiveFuture3rdFPlural,
+          root: data.root,
+          binyan: data.passiveBinyan,
+          url: data.url
+        })
+
+        const passiveFutureTableId = `table-${baseId}-passive-future`
+        tables.push(generateTableContainer(passiveFutureTableId, passiveFutureRowHTML, "Copy Passive Future Tense Table"))
+      }
     }
   }
 
