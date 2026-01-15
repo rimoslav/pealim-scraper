@@ -477,10 +477,10 @@ export function generateHTML(data: GenerateHTMLData): string {
       // Add "Passive forms" header
       tables.push(generateSectionHeader("Passive forms", `Binyan ${data.passiveBinyan}`))
 
-      // Passive present tense table (no infinitive for passive)
+      // Passive present tense table (use active infinitive)
       const passivePresentRowHTML = generatePresentTenseHTMLRow({
         meaning: data.meaning,
-        infinitive: { h: "", hn: "", t: "", ti: 0 }, // No infinitive for passive
+        infinitive: data.infinitive,
         mSingular: data.passiveMSingular,
         fSingular: data.passiveFSingular,
         mPlural: data.passiveMPlural,
