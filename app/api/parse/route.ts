@@ -212,97 +212,163 @@ export async function POST(request: NextRequest) {
       let mPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
       let fPlural: HebrewFormData = { h: "", hn: "", t: "", ti: 0 }
 
-      // Find adjective forms - look for td elements with IDs or divs with IDs
-      // Adjectives have IDs: ms-a (masculine singular), fs-a (feminine singular), mp-a (masculine plural), fp-a (feminine plural)
-      // Try both: td with id, and div with id inside td.conj-td
+      // Check if the page is actually a verb - if so, extract adjective forms from passive participle
+      const isVerbPage = detectedPartOfSpeech === "verb"
 
-      // Find adjective forms - look for td elements with IDs or divs with IDs
-      // Adjectives have IDs: ms-a (masculine singular), fs-a (feminine singular), mp-a (masculine plural), fp-a (feminine plural)
-      const findFormData = (formId: string): {
+      if (isVerbPage && hasPassiveForms && passiveTable) {
+        // Extract adjective forms from the passive "Present tense / Participle" section
+        const findPassiveFormData = (formId: string): { td: cheerio.Cheerio<any>; div: cheerio.Cheerio<any> } | null => {
+          const passiveTableRef: cheerio.Cheerio<any> = passiveTable!
+          let td: cheerio.Cheerio<any> = passiveTableRef.find(`td[id="${formId}"]`).first()
+          let div: cheerio.Cheerio<any> = passiveTableRef.find(`div[id="${formId}"]`).first()
 
-        td: cheerio.Cheerio<any>;
-
-        div: cheerio.Cheerio<any>
-      } | null => {
-        // Try td with id first
-
-        let td: cheerio.Cheerio<any> = table.find(`td[id="${formId}"]`).first()
-        if (td.length === 0) {
-          // Try div with id and get its parent td
-          const div = table.find(`div[id="${formId}"]`).first()
-          if (div.length > 0) {
-
-            td = div.closest("td.conj-td") as cheerio.Cheerio<any>
+          if (td.length > 0) {
+            if (div.length === 0) {
+              div = td
+            }
+            return { td, div }
+          } else if (div.length > 0) {
+            td = div.closest("td.conj-td")
+            if (td.length > 0) {
+              return { td, div }
+            }
           }
+          return null
         }
-        if (td.length > 0) {
-          const div = td.find(`div[id="${formId}"]`).first()
-          return { td, div }
-        }
-        return null
-      }
 
-      // Find masculine singular
-      const msForm = findFormData("ms-a")
-      if (msForm) {
-        if (msForm.div.length > 0) {
+        // Parse passive present tense forms as adjective forms
+        const msForm = findPassiveFormData("passive-AP-ms")
+        if (msForm) {
           const msData = extractFormData(msForm.div, $)
           mSingular = { ...msData }
-        } else {
-          const msData = extractFormData(msForm.td, $)
-          mSingular = { ...msData }
+          const msVariations = extractVariations(msForm.td, $)
+          if (msVariations.length > 0) {
+            mSingular.variations = msVariations
+          }
         }
-        const msVariations = extractVariations(msForm.td, $)
-        if (msVariations.length > 0) {
-          mSingular.variations = msVariations
-        }
-      }
 
-      // Find feminine singular
-      const fsForm = findFormData("fs-a")
-      if (fsForm) {
-        if (fsForm.div.length > 0) {
+        const fsForm = findPassiveFormData("passive-AP-fs")
+        if (fsForm) {
           const fsData = extractFormData(fsForm.div, $)
           fSingular = { ...fsData }
-        } else {
-          const fsData = extractFormData(fsForm.td, $)
-          fSingular = { ...fsData }
+          const fsVariations = extractVariations(fsForm.td, $)
+          if (fsVariations.length > 0) {
+            fSingular.variations = fsVariations
+          }
         }
-        const fsVariations = extractVariations(fsForm.td, $)
-        if (fsVariations.length > 0) {
-          fSingular.variations = fsVariations
-        }
-      }
 
-      // Find masculine plural
-      const mpForm = findFormData("mp-a")
-      if (mpForm) {
-        if (mpForm.div.length > 0) {
+        const mpForm = findPassiveFormData("passive-AP-mp")
+        if (mpForm) {
           const mpData = extractFormData(mpForm.div, $)
           mPlural = { ...mpData }
-        } else {
-          const mpData = extractFormData(mpForm.td, $)
-          mPlural = { ...mpData }
+          const mpVariations = extractVariations(mpForm.td, $)
+          if (mpVariations.length > 0) {
+            mPlural.variations = mpVariations
+          }
         }
-        const mpVariations = extractVariations(mpForm.td, $)
-        if (mpVariations.length > 0) {
-          mPlural.variations = mpVariations
-        }
-      }
 
-      // Find feminine plural
-      const fpForm = findFormData("fp-a")
-      if (fpForm) {
-        if (fpForm.div.length > 0) {
+        const fpForm = findPassiveFormData("passive-AP-fp")
+        if (fpForm) {
           const fpData = extractFormData(fpForm.div, $)
           fPlural = { ...fpData }
-        } else {
-          const fpData = extractFormData(fpForm.td, $)
-          fPlural = { ...fpData }
+          const fpVariations = extractVariations(fpForm.td, $)
+          if (fpVariations.length > 0) {
+            fPlural.variations = fpVariations
+          }
         }
-        const fpVariations = extractVariations(fpForm.td, $)
-        if (fpVariations.length > 0) {
-          fPlural.variations = fpVariations
+
+        // Set pattern to "—" for verb-derived adjectives
+        pattern = "—"
+      } else {
+        // Regular adjective parsing
+        // Find adjective forms - look for td elements with IDs or divs with IDs
+        // Adjectives have IDs: ms-a (masculine singular), fs-a (feminine singular), mp-a (masculine plural), fp-a (feminine plural)
+        const findFormData = (formId: string): {
+
+          td: cheerio.Cheerio<any>;
+
+          div: cheerio.Cheerio<any>
+        } | null => {
+          // Try td with id first
+
+          let td: cheerio.Cheerio<any> = table.find(`td[id="${formId}"]`).first()
+          if (td.length === 0) {
+            // Try div with id and get its parent td
+            const div = table.find(`div[id="${formId}"]`).first()
+            if (div.length > 0) {
+
+              td = div.closest("td.conj-td") as cheerio.Cheerio<any>
+            }
+          }
+          if (td.length > 0) {
+            const div = td.find(`div[id="${formId}"]`).first()
+            return { td, div }
+          }
+          return null
+        }
+
+        // Find masculine singular
+        const msForm = findFormData("ms-a")
+        if (msForm) {
+          if (msForm.div.length > 0) {
+            const msData = extractFormData(msForm.div, $)
+            mSingular = { ...msData }
+          } else {
+            const msData = extractFormData(msForm.td, $)
+            mSingular = { ...msData }
+          }
+          const msVariations = extractVariations(msForm.td, $)
+          if (msVariations.length > 0) {
+            mSingular.variations = msVariations
+          }
+        }
+
+        // Find feminine singular
+        const fsForm = findFormData("fs-a")
+        if (fsForm) {
+          if (fsForm.div.length > 0) {
+            const fsData = extractFormData(fsForm.div, $)
+            fSingular = { ...fsData }
+          } else {
+            const fsData = extractFormData(fsForm.td, $)
+            fSingular = { ...fsData }
+          }
+          const fsVariations = extractVariations(fsForm.td, $)
+          if (fsVariations.length > 0) {
+            fSingular.variations = fsVariations
+          }
+        }
+
+        // Find masculine plural
+        const mpForm = findFormData("mp-a")
+        if (mpForm) {
+          if (mpForm.div.length > 0) {
+            const mpData = extractFormData(mpForm.div, $)
+            mPlural = { ...mpData }
+          } else {
+            const mpData = extractFormData(mpForm.td, $)
+            mPlural = { ...mpData }
+          }
+          const mpVariations = extractVariations(mpForm.td, $)
+          if (mpVariations.length > 0) {
+            mPlural.variations = mpVariations
+          }
+        }
+
+        // Find feminine plural
+        const fpForm = findFormData("fp-a")
+        if (fpForm) {
+          if (fpForm.div.length > 0) {
+            const fpData = extractFormData(fpForm.div, $)
+            fPlural = { ...fpData }
+          } else {
+            const fpData = extractFormData(fpForm.td, $)
+            fPlural = { ...fpData }
+          }
+          const fpVariations = extractVariations(fpForm.td, $)
+          if (fpVariations.length > 0) {
+            fPlural.variations = fpVariations
+          }
         }
       }
 
