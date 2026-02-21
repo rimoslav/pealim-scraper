@@ -83,7 +83,7 @@ export function extractVariations(td: cheerio.Cheerio<any>, $: cheerio.CheerioAP
       const shouldFilterUnstressedEnding = filterUnstressedEnding && containerText.includes("The ending is usually unstressed in spoken language")
 
       // Helper function to process a div and extract variation
-      
+
       const processDiv = (childDiv: any) => {
         const currentDiv = $(childDiv)
         // Look for structured form data (div[id="s"] or div[id="p"] or div[id="ms-a"], etc., or verb forms)
