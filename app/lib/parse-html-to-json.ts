@@ -47,6 +47,10 @@ export function extractFormData(formDiv: cheerio.Cheerio<any>, $: cheerio.Cheeri
     ti = textBeforeBold.length
   }
 
+  // Remove speaker emoji from Hebrew text
+  h = h.replace(/🔊/g, "").trim()
+  hn = hn.replace(/🔊/g, "").trim()
+
   return { h, hn, t, ti }
 }
 
@@ -128,6 +132,10 @@ export function extractVariations(td: cheerio.Cheerio<any>, $: cheerio.CheerioAP
                 varTI = textBeforeBold.length
               }
             }
+
+            // Remove speaker emoji from Hebrew text
+            varH = varH.replace(/🔊/g, "").trim()
+            varHN = varHN.replace(/🔊/g, "").trim()
 
             variations.push({
               h: varH,
@@ -229,6 +237,10 @@ export function extractVerbVariations(formDiv: cheerio.Cheerio<any>, $: cheerio.
           varTI = textBeforeBold.length
         }
       }
+
+      // Remove speaker emoji from Hebrew text
+      varH = varH.replace(/🔊/g, "").trim()
+      varHN = varHN.replace(/🔊/g, "").trim()
 
       variations.push({
         h: varH,
