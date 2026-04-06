@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
     const html = await response.text()
     const $ = cheerio.load(html)
 
+    // Remove audio speaker icons (🔊) before parsing to prevent them from leaking into extracted text
+    $("span.audio-play").remove()
+
     // Parse common data using selectors
     // Pattern is in the <p> tag immediately after h2.page-header
     let gender: "male" | "female" | null = null
